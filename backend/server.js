@@ -8,7 +8,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const audioRoutes = require('./routes/audio');
 const summaryRoutes = require('./routes/summary');
-const taskRoutes = require('./routes/task'); // si tu en as
+const taskRoutes = require('./routes/task');
 
 const app = express();
 
@@ -23,9 +23,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ MongoDB connected'))
+  .then(() => console.log('MongoDB connected'))
   .catch((err) => {
-    console.error('❌ MongoDB connection error:', err);
+    console.error('MongoDB connection error:', err);
     process.exit(1);
   });
 
@@ -33,7 +33,7 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/api', authRoutes);
 app.use('/api', audioRoutes);
 app.use('/api', summaryRoutes);
-app.use('/api', taskRoutes); // si tu l'utilises
+app.use('/api', taskRoutes);
 
 // Launch server
 const PORT = process.env.PORT || 5000;
