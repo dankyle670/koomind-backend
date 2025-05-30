@@ -12,12 +12,15 @@ const taskRoutes = require('./routes/task');
 
 const app = express();
 
-// Middleware
+// CORS Configuration pour autoriser ton frontend déployé
 app.use(cors({
-  origin: '*',
+  origin: ['https://koomind-frontend.onrender.com', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
+
+// Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
