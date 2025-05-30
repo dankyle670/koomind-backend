@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Summary = require('../models/Summary');
 const jwt = require('jsonwebtoken');
+const sendSummaryEmail = require('../utils/sendSummaryEmail');
 
 // Middleware to verify JWT
 function auth(req, res, next) {
@@ -16,7 +17,7 @@ function auth(req, res, next) {
   }
 }
 
-// POST /api/summary - save a new summary
+// POST /api/summary save a new summary and notify admins
 router.post('/summary', auth, async (req, res) => {
   const { title, summary, objectives } = req.body;
 
@@ -31,14 +32,17 @@ router.post('/summary', auth, async (req, res) => {
       objectives
     });
     await newSummary.save();
-    res.status(201).json({ message: 'Summary saved' });
+
+    //Send email to admins
+    await sendSummaryEmail({ title, summary, objectives });
+    res.status(201).json({ message: 'Summary saved and emails sent' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Error saving summary' });
+    res.status(500).json({ message: 'Error saving summary or sending emails' });
   }
 });
 
-// GET /api/summary - get all summaries for user
+// GET /api/summary - get all summaries for current user
 router.get('/summary', auth, async (req, res) => {
   try {
     const summaries = await Summary.find({ userId: req.user.id }).sort({ createdAt: -1 });
@@ -47,7 +51,8 @@ router.get('/summary', auth, async (req, res) => {
     res.status(500).json({ message: 'Error fetching summaries' });
   }
 });
-// GET /api/summary/all - get all summaries (admins and users)
+
+// GET /api/summary/all - get all summaries (for admins)
 router.get("/summary/all", auth, async (req, res) => {
   try {
     const summaries = await Summary.find().sort({ createdAt: -1 });
@@ -57,8 +62,7 @@ router.get("/summary/all", auth, async (req, res) => {
   }
 });
 
-
-// GET /api/summary/:id - get one
+// GET /api/summary/:id - get one summary by ID for current user
 router.get('/summary/:id', auth, async (req, res) => {
   try {
     const summary = await Summary.findOne({ _id: req.params.id, userId: req.user.id });
@@ -69,7 +73,7 @@ router.get('/summary/:id', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/summary/:id
+// DELETE /api/summary/:id - delete summary
 router.delete('/summary/:id', auth, async (req, res) => {
   try {
     await Summary.deleteOne({ _id: req.params.id, userId: req.user.id });
@@ -81,19 +85,19 @@ router.delete('/summary/:id', auth, async (req, res) => {
 
 // PUT /api/summary/:id - update summary
 router.put('/summary/:id', auth, async (req, res) => {
-    const { title, summary, objectives } = req.body;
-    try {
-      const updated = await Summary.findOneAndUpdate(
-        { _id: req.params.id, userId: req.user.id },
-        { title, summary, objectives },
-        { new: true }
-      );
-      if (!updated) return res.status(404).json({ message: 'Summary not found' });
-      res.json({ message: 'Summary updated', summary: updated });
-    } catch (err) {
-      console.error('Update error:', err);
-      res.status(500).json({ message: 'Error updating summary' });
-    }
-  });
+  const { title, summary, objectives } = req.body;
+  try {
+    const updated = await Summary.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      { title, summary, objectives },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: 'Summary not found' });
+    res.json({ message: 'Summary updated', summary: updated });
+  } catch (err) {
+    console.error('Update error:', err);
+    res.status(500).json({ message: 'Error updating summary' });
+  }
+});
 
 module.exports = router;
