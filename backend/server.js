@@ -4,11 +4,12 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 require('dotenv').config();
 
-// Routes
+//routes
 const authRoutes = require('./routes/auth');
 const audioRoutes = require('./routes/audio');
 const summaryRoutes = require('./routes/summary');
 const taskRoutes = require('./routes/task');
+const chatbotRoutes = require('./routes/chatbot');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api', authRoutes);
 app.use('/api', audioRoutes);
 app.use('/api', summaryRoutes);
 app.use('/api', taskRoutes);
+app.use('/api', chatbotRoutes);
 
 // Launch server
 const PORT = process.env.PORT || 5000;
