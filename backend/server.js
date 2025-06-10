@@ -10,6 +10,8 @@ const audioRoutes = require('./routes/audio');
 const summaryRoutes = require('./routes/summary');
 const taskRoutes = require('./routes/task');
 const chatbotRoutes = require('./routes/chatbot');
+const textToAudioRoute = require('./routes/textToAudio');
+
 
 const app = express();
 
@@ -39,9 +41,11 @@ app.use('/api', audioRoutes);
 app.use('/api', summaryRoutes);
 app.use('/api', taskRoutes);
 app.use('/api', chatbotRoutes);
+app.use('/api', textToAudioRoute);
+
 
 // Launch server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
