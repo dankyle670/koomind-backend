@@ -1,3 +1,4 @@
+// backend/routes/auth.js
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
@@ -6,7 +7,7 @@ const jwt = require('jsonwebtoken');
 
 const { authenticate, requireAdmin } = require('../middleware/auth');
 
-// Login Route
+// ---------------------- LOGIN ----------------------
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password)
@@ -19,16 +20,27 @@ router.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ message: 'Incorrect password' });
 
-    const token = jwt.sign(
-  { id: user._id, role: user.role, name: user.name },
-  process.env.JWT_SECRET,
-  { expiresIn: '1h' }
-);
+    // --- Création tokens ---
+    const accessToken = jwt.sign(
+      { id: user._id, role: user.role, name: user.name },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' } // token court terme
+    );
 
+    const refreshToken = jwt.sign(
+      { id: user._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' } // token long terme
+    );
+
+    // Stockage du refresh token en DB
+    user.refreshToken = refreshToken;
+    await user.save();
 
     res.json({
       message: 'Login successful',
-      token,
+      accessToken,
+      refreshToken,
       userId: user._id,
       name: user.name,
       role: user.role,
@@ -39,7 +51,31 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Create user Route
+// ---------------------- REFRESH TOKEN ----------------------
+router.post('/refresh-token', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(401).json({ message: 'Refresh token manquant' });
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    const user = await User.findById(payload.id);
+    if (!user || user.refreshToken !== token)
+      return res.status(403).json({ message: 'Refresh token invalide' });
+
+    const newAccessToken = jwt.sign(
+      { id: user._id, role: user.role, name: user.name },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    console.error('Refresh token error:', err);
+    res.status(403).json({ message: 'Refresh token invalide' });
+  }
+});
+
+// ---------------------- CREATE USER ----------------------
 router.post('/create-user', async (req, res) => {
   const { name, email, password, role } = req.body;
 
@@ -48,16 +84,14 @@ router.post('/create-user', async (req, res) => {
 
   try {
     const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(409).json({ message: 'Email already exists' });
-    }
+    if (existing) return res.status(409).json({ message: 'Email already exists' });
 
     const hashed = await bcrypt.hash(password, 10);
     const newUser = new User({
       name,
       email,
       password: hashed,
-      role: role === "admin" ? "admin" : "user", // default to 'user' if invalid
+      role: role === 'admin' ? 'admin' : 'user',
     });
 
     await newUser.save();
@@ -68,7 +102,7 @@ router.post('/create-user', async (req, res) => {
   }
 });
 
-// ✅ Reset admin password (must be before /user/:id)
+// ---------------------- RESET PASSWORD ----------------------
 router.put('/user/reset-password', authenticate, requireAdmin, async (req, res) => {
   const { email, password } = req.body;
 
@@ -90,7 +124,7 @@ router.put('/user/reset-password', authenticate, requireAdmin, async (req, res) 
   }
 });
 
-// Delete User (admin only)
+// ---------------------- DELETE USER ----------------------
 router.delete('/user/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const deleted = await User.findByIdAndDelete(req.params.id);
@@ -103,7 +137,7 @@ router.delete('/user/:id', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-// Update User Info (admin only)
+// ---------------------- UPDATE USER ----------------------
 router.put('/user/:id', authenticate, requireAdmin, async (req, res) => {
   const { name, email } = req.body;
 
@@ -122,7 +156,7 @@ router.put('/user/:id', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-// Get All Users (optional: admin-only)
+// ---------------------- GET USERS ----------------------
 router.get('/users', authenticate, requireAdmin, async (req, res) => {
   try {
     const users = await User.find({}, '-password');
@@ -133,7 +167,7 @@ router.get('/users', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-// Get Single User (optional: admin-only)
+// ---------------------- GET SINGLE USER ----------------------
 router.get('/user/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id, '-password');
@@ -146,39 +180,39 @@ router.get('/user/:id', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-// Get current user
-router.get("/me", authenticate, async (req, res) => {
-  const user = await User.findById(req.user.id, "-password");
-  if (!user) return res.status(404).json({ message: "User not found" });
+// ---------------------- CURRENT USER ----------------------
+router.get('/me', authenticate, async (req, res) => {
+  const user = await User.findById(req.user.id, '-password');
+  if (!user) return res.status(404).json({ message: 'User not found' });
   res.json(user);
 });
 
-// Update current user profile
-router.put("/me", authenticate, async (req, res) => {
+// ---------------------- UPDATE CURRENT USER ----------------------
+router.put('/me', authenticate, async (req, res) => {
   const { bio, phone, linkedin } = req.body;
   try {
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.bio = bio;
     user.phone = phone;
     user.linkedin = linkedin;
     await user.save();
 
-    res.json({ message: "Profile updated" });
+    res.json({ message: 'Profile updated' });
   } catch (err) {
-    res.status(500).json({ message: "Update failed" });
+    res.status(500).json({ message: 'Update failed' });
   }
 });
 
-// Get all admins
-router.get("/admins", authenticate, requireAdmin, async (req, res) => {
+// ---------------------- GET ADMINS ----------------------
+router.get('/admins', authenticate, requireAdmin, async (req, res) => {
   try {
-    const admins = await User.find({ role: "admin" }, "-password");
+    const admins = await User.find({ role: 'admin' }, '-password');
     res.json(admins);
   } catch (err) {
-    console.error("Error fetching admins:", err);
-    res.status(500).json({ message: "Error fetching admins" });
+    console.error('Error fetching admins:', err);
+    res.status(500).json({ message: 'Error fetching admins' });
   }
 });
 
