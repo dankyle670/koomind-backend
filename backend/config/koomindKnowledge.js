@@ -35,9 +35,8 @@ const KOOMIND_KNOWLEDGE = {
     canAssistSeekadollarsTeam: true
   },
   teamEmails: {
-    Daniel: "jdanielkom@gmail.com",
-    Yves: "yves.13507@gmail.com",
-    Steve:"stevekomoe@icloud.com",
+    Daniel: "daniel.komoe@valfred.io",
+    William: "william.kromm@valfred.io",
     seekadollars: "seekadollars@gmail.com"
   },
 };
